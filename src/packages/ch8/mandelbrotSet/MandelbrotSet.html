@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>shader动画</title>
+  </head>
+  <body>
+    <canvas width="512" height="512"></canvas>
+    <script src="/gl-renderer.js"></script>
+    <script type="module">
+      const vertex = `
+      attribute vec2 a_vertexPosition;
+attribute vec2 uv;
+varying vec2 vUv;
+
+      void main() {
+        gl_PointSize = 1.0;
+        vUv = uv;
+        gl_Position = vec4(a_vertexPosition, 1, 1);
+      }
+    `;
+      const fragment = `
+     
+#ifdef GL_ES
+precision mediump float;
+#endif
+varying vec2 vUv;
+uniform vec2 center;
+uniform float scale;
+uniform float iterations;
+
+vec2 f(vec2 z, vec2 c) {
+  return mat2(z.x,z.y, -z.y, z.x) * z + c;
+}
+
+void main() {
+    vec2 uv = vUv;
+    vec2 c = center - 4.0 * (uv - vec2(0.5)) / scale;
+    vec2 z = vec2(0.0);
+
+    bool escaped = false;
+    float j;
+    for (float i = 0.0; i < 65536.0; i++) {
+      if(i > iterations) break;
+      j = i;
+      z = f(z, c);
+      if (length(z) > 2.0) {
+        escaped = true;
+        break;
+      }
+    }
+
+    gl_FragColor.rgb = escaped ? vec3(float(j)) / float(iterations) : vec3(0.0);
+    gl_FragColor.a = 1.0;
+}
+    `;
+      const canvas = document.querySelector("canvas");
+      const renderer = new GlRenderer(canvas);
+      const program = renderer.compileSync(fragment, vertex);
+      renderer.useProgram(program);
+
+      renderer.uniforms.center = [-1.5, 0];
+      renderer.uniforms.scale = 10000;
+      renderer.uniforms.iterations = 64;
+      renderer.setMeshData([
+        {
+          positions: [
+            [-1, -1],
+            [-1, 1],
+            [1, 1],
+            [1, -1],
+          ],
+          attributes: {
+            uv: [
+              [0, 0],
+              [0, 1],
+              [1, 1],
+              [1, 0],
+            ],
+          },
+          cells: [
+            [0, 1, 2],
+            [2, 0, 3],
+          ],
+        },
+      ]);
+      renderer.render();
+    </script>
+  </body>
+</html>
